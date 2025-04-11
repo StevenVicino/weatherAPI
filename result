@@ -1,0 +1,162 @@
+import {getCurrentWeather, getForecast} from "backend/openWeatherAPI.web"
+import wixLocation from 'wix-location';
+import { local } from 'wix-storage';
+import { v4 as uuidv4 } from 'uuid';
+
+let currentWeather;
+let forecast;
+let unit = "metric"; // metric is celsius and imperial is fahrenheit
+let location = "";
+
+const FAVORITE_SETTINGS_KEY = 'weatherAppSettings';
+const CURRENT_SETTINGS_KEY = "currentAppSettings";
+
+$w.onReady(function () {
+$w("#loadingAnimation1").show()
+$w("#loadingAnimation2").show()
+loadFavoriteSettings();
+bindEventListeners();
+});
+
+async function populateCurrentWeather(){
+	$w("#loadingAnimation1").show()
+	currentWeather = await getCurrentWeather(location, unit);
+	try{
+	$w("#temperatureCurrent").text = Math.round(currentWeather.main.temp).toString() + "°";
+	if(currentWeather.sys.country){
+		$w("#cityHeading").text = `${currentWeather.name}, ${currentWeather.sys.country}`
+		}else{
+			$w("#cityHeading").text = `${currentWeather.name}`
+			}
+	$w("#weather").text = currentWeather.weather[0].main;
+	$w("#minTemp").text = Math.round(currentWeather.main.temp_min).toString() + "°";
+	$w("#maxTemp").text = Math.round(currentWeather.main.temp_max).toString() + "°";
+	$w("#windSpeed").text = unit === "metric" ? currentWeather.wind.speed + " m/s" : currentWeather.wind.speed + " mph";
+	$w("#humidity").text = currentWeather.main.humidity + "%";
+	$w("#currentWeather").src = getWeatherIcon(currentWeather.weather[0].icon);
+	$w("#loadingAnimation1").hide()
+	$w("#content1").show();
+	} catch(e){
+        wixLocation.to("/error");
+	}
+}
+
+async function populateForecast(){
+	$w("#loadingAnimation2").show()
+    $w("#forecastRepeater").onItemReady(($item, itemData)=>{
+        if (itemData) {
+            $item("#forecastDay").text = new Date(itemData.item[0].dt * 1000).toLocaleDateString('en-US', {weekday: "short"});
+           	const minTemp = Math.round(findMinMaxTemp(itemData.item).temp_min).toString(); 
+			const maxTemp = Math.round(findMinMaxTemp(itemData.item).temp_max).toString();
+            $item("#forecastMinMax").text = `${minTemp}° - ${maxTemp}°`;
+			$item("#forecastWeather").src = getWeatherIcon(itemData.item[0].weather[0].icon);
+			
+        }
+    });
+    forecast = await getForecast(location, unit);
+    try{
+		if(forecast.length > 5){
+		forecast = forecast.slice(1,6);
+		}
+        const repeaterData = forecast.map((item)=>(
+            { item: item, _id: uuidv4() }));
+        $w("#forecastRepeater").data = repeaterData;
+		$w("#loadingAnimation2").hide()
+		$w("#content2").show();
+    }catch(e){
+		wixLocation.to("/error");
+	}
+}
+
+
+function bindEventListeners(){
+  $w("#fahrenheitButton").onClick(()=>{
+	$w("#celsiusButton").enable();
+	$w("#fahrenheitButton").disable();
+	unit = "imperial"
+  });
+    $w("#celsiusButton").onClick(()=>{
+	$w("#fahrenheitButton").enable();
+	$w("#celsiusButton").disable();
+	unit = "metric"
+  });
+  $w("#delete").onClick(()=>{
+	$w("#delete").label = "No Favorites";
+	local.removeItem(FAVORITE_SETTINGS_KEY);
+  });
+  $w("#home").onClick(()=>{
+	wixLocation.to("/")
+  })
+  $w("#submit").onClick(()=>{
+	location = $w("#city").value.trim();
+	location =  encodeURIComponent(location);
+	if(!location){
+		location = "New%20York"
+	}
+	handleSaveSettingsChange($w("#favorites").checked)
+	populateCurrentWeather();
+	populateForecast();
+  });
+}
+
+function findMinMaxTemp(dataArray){
+	let temperatures = {}
+	dataArray.forEach((item)=>{
+		if(!temperatures.temp_min || (item.main.temp_min < temperatures.temp_min)){
+			temperatures.temp_min = item.main.temp_min;
+		}
+		if(!temperatures.temp_max || (item.main.temp_max > temperatures.temp_max)){
+			temperatures.temp_max = item.main.temp_max;
+		}
+	});
+	
+	return temperatures;
+}
+
+function getWeatherIcon(iconCode){
+	return `https://openweathermap.org/img/wn/${iconCode}@2x.png`
+}
+
+function handleSaveSettingsChange(isChecked) {
+  if (isChecked && location) {
+    const currentLocation = location;
+    const currentUnit = unit;
+    const settings = { location: currentLocation, unit: currentUnit };
+    local.setItem(FAVORITE_SETTINGS_KEY, JSON.stringify(settings));
+	$w("#delete").label = "Delete Favorite";
+  }
+}
+
+function loadFavoriteSettings() {
+  const savedSettings = local.getItem(FAVORITE_SETTINGS_KEY);
+  const currentSettings = local.getItem(CURRENT_SETTINGS_KEY);
+ if(currentSettings){
+	const settings = JSON.parse(currentSettings);
+    location = settings.location || location;
+    unit = settings.unit || unit;
+	if(unit == "imperial"){
+		$w("#celsiusButton").enable();
+		$w("#fahrenheitButton").disable();
+	}else{
+		$w("#celsiusButton").disable();
+		$w("#fahrenheitButton").enable();
+	}
+	populateCurrentWeather();
+	populateForecast();
+  } else if (savedSettings) {
+    const settings = JSON.parse(savedSettings);
+    location = settings.location || location;
+    unit = settings.unit || unit;
+	if(unit == "imperial"){
+		$w("#celsiusButton").enable();
+		$w("#fahrenheitButton").disable();
+	}else{
+		$w("#celsiusButton").disable();
+		$w("#fahrenheitButton").enable();
+	}
+	populateCurrentWeather();
+	populateForecast();
+  } 
+}
+
+
