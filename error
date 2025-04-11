@@ -1,0 +1,69 @@
+import wixLocation from 'wix-location';
+import { local } from 'wix-storage';
+
+let unit = "metric"; // metric is celsius and imperial is fahrenheit
+let location = "";
+
+const FAVORITE_SETTINGS_KEY = 'weatherAppSettings';
+const CURRENT_SETTINGS_KEY = "currentAppSettings";
+
+$w.onReady(function () {
+loadFavoriteSettings();
+bindEventListeners();
+});
+
+
+
+
+function bindEventListeners(){
+  $w("#fahrenheitButton").onClick(()=>{
+	$w("#celsiusButton").enable();
+	$w("#fahrenheitButton").disable();
+	unit = "imperial"
+  })
+    $w("#celsiusButton").onClick(()=>{
+	$w("#fahrenheitButton").enable();
+	$w("#celsiusButton").disable();
+	unit = "metric"
+  });
+  $w("#home").onClick(()=>{
+	wixLocation.to("/")
+  });
+  $w("#submit").onClick(()=>{
+	location = $w("#city").value.trim();
+	location =  encodeURIComponent(location);
+	if(!location){
+		location = "New%20York"
+	}
+
+	handleSaveSettingsChange($w("#favorites").checked)
+	wixLocation.to('/result');
+  });
+}
+
+
+
+function handleSaveSettingsChange(isChecked) {
+  if (isChecked && location) {
+    const currentLocation = location;
+    const currentUnit = unit;
+    const settings = { location: currentLocation, unit: currentUnit };
+    local.setItem(FAVORITE_SETTINGS_KEY, JSON.stringify(settings));
+	local.setItem(CURRENT_SETTINGS_KEY, JSON.stringify(settings));
+  }else if(location){
+	const currentLocation = location;
+    const currentUnit = unit;
+    const settings = { location: currentLocation, unit: currentUnit };
+    local.setItem(CURRENT_SETTINGS_KEY, JSON.stringify(settings));
+  }
+}
+
+function loadFavoriteSettings() {
+  const savedSettings = local.getItem(FAVORITE_SETTINGS_KEY);
+  if (savedSettings) {
+	wixLocation.to('/result');
+	}
+}
+
+
+
