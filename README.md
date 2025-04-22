@@ -1,3 +1,5 @@
+https://stevenvicino.wixstudio.com/weatherapp
+
 # Brief Synopsis of Weather App Development
 This project involved the development of a dynamic weather application built on the Wix platform, leveraging Velo (Wix's JavaScript) for front-end logic and utilizing a backend web module (openWeatherAPI.web) to interact with the OpenWeatherMap API. The primary goal was to create a user-friendly interface that allows users to view current weather conditions and a 5-day forecast for a specified location, with the added functionality of saving a favorite location.
 Key Features and Implementation:
